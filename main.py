@@ -1,3 +1,5 @@
+from queue import Queue
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import BotCommand
@@ -18,7 +20,7 @@ user_last_message = {}
 # Команда /start
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
-    await message.answer("Привет! Я бот, который поможет вам организовать очередь вызова на фронт.\n"
+    await message.answer("Привет! Я товарищ Майор, который поможет вам организовать очередь вызова на фронт.\n"
                          "Команды:\n"
                          "/add <приоритет(чудо яйца) от 0 до 2>- добавить человека(себя) в очередь с определённым приоритетом\n"
                          "/queue - показать всю очередь\n"
@@ -74,8 +76,9 @@ async def show_queue(message: types.Message):
 # Команда /next для показа и удаления следующего пользователя
 @dp.message(Command("next"))
 async def show_next(message: types.Message):
-    if queue:
-        next_user = queue.pop(0)
+    if queue.__len__() > 1:
+        queue.pop()
+        next_user = queue[-1]
         await message.answer(f"Следующий к доске: {next_user['name']} (Приоритет: {next_user['priority']})")
     else:
         await message.answer("Очередь пустая.")
@@ -98,8 +101,8 @@ async def set_commands(botQueue: Bot):
     commands = [
         BotCommand(command="/start", description="Запустить бота"),
         BotCommand(command="/add", description="Добавить в очередь"),
+        BotCommand(command="/next", description="Удалить и показать следующего"),
         BotCommand(command="/queue", description="Показать очередь"),
-        BotCommand(command="/remove", description="Удалить первого из очереди"),
         BotCommand(command="/clear", description="Очистить очередь")
     ]
     await botQueue.set_my_commands(commands)
