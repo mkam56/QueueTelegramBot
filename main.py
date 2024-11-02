@@ -77,7 +77,7 @@ async def show_queue(message: types.Message):
 @dp.message(Command("next"))
 async def show_next(message: types.Message):
     if queue.__len__() > 1:
-        queue.pop()
+        remove = queue.pop(0)
         next_user = queue[-1]
         await message.answer(f"Следующий к доске: {next_user['name']} (Приоритет: {next_user['priority']})")
     else:
