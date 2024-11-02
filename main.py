@@ -76,8 +76,12 @@ async def show_queue(message: types.Message):
 # Команда /next для показа и удаления следующего пользователя
 @dp.message(Command("next"))
 async def show_next(message: types.Message):
-    if queue.__len__() > 1:
-        remove = queue.pop(0)
+    if queue:
+        removed = queue.pop(0)
+        await message.answer(f"{removed['name']} удален(а) из очереди.")
+    else:
+        await message.answer("Очередь пустая.")
+    if queue.__len__() > 0:
         next_user = queue[-1]
         await message.answer(f"Следующий к доске: {next_user['name']} (Приоритет: {next_user['priority']})")
     else:
