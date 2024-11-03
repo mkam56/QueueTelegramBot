@@ -11,7 +11,6 @@ from comands import main_router
 
 # redis.acl_setuser(username=getenv("REDIS_USER", default=""), password=getenv("REDIS_USER_PASSWORD", default=""))
 
-
 # Запуск бота
 async def main():
     try:
