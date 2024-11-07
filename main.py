@@ -1,122 +1,217 @@
-from queue import Queue
+import json
+import os
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
 import asyncio
 
-# Установи сюда свой API-токен
+
 API_TOKEN = '8104732193:AAHJ_qRzjEcSu7p5Ntp-Nthy7Y7pkzbvkcs'
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
+# Путь к файлу для хранения данных очереди
+QUEUE_FILE = 'queue_data.json'
+
 # Очередь, где каждый элемент — словарь с данными пользователя и приоритетом
 queue = []
 
-# Словарь для хранения ID последнего сообщения для каждого пользователя
-user_last_message = {}
+# ID стартового сообщения для обновления информации о очереди
+start_message_id = None
+start_chat_id = None
 
-# Команда /start
-@dp.message(Command("start"))
-async def send_welcome(message: types.Message):
-    await message.answer("Привет! Я товарищ Майор, который поможет вам организовать очередь вызова на фронт.\n"
-                         "Команды:\n"
-                         "/add <приоритет(чудо яйца) от 0 до 2>- добавить человека(себя) в очередь с определённым приоритетом\n"
-                         "/queue - показать всю очередь\n"
-                         "/next - удалить первого из очереди и показать следующего\n"
-                         "/clear - очистить очередь, только для раба Хитори Гото")
+add_priority_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Высокий приоритет", callback_data="add_low")],
+    [InlineKeyboardButton(text="Средний приоритет", callback_data="add_medium")],
+    [InlineKeyboardButton(text="Низкий приоритет", callback_data="add_high")],
+    [InlineKeyboardButton(text="Следующий (Удалить себя)", callback_data="next_user")]
+])
 
-# Команда /add для добавления пользователя с приоритетом
-@dp.message(Command("add"))
-async def add_to_queue(message: types.Message):
-    user_id = message.from_user.id
-    name = message.from_user.full_name  # Получаем полное имя пользователя
-    args = message.text.split(maxsplit=1)
 
-    # Проверка наличия приоритета
-    if len(args) < 2 or not args[1].isdigit() or not (0 <= int(args[1]) <= 2):
-        await message.answer("Пожалуйста, укажите приоритет (0, 1 или 2) после команды /add.")
-        return
-
-    priority = int(args[1])
-
-    # Проверка, чтобы пользователь не добавлялся дважды
-    for user in queue:
-        if user['id'] == user_id:
-            await message.answer("Вы уже находитесь в очереди.")
-            return
-
-    # Удаление предыдущего сообщения, если оно существует
-    if user_id in user_last_message:
+# Загрузка очереди из файла при запуске
+def load_queue():
+    global queue
+    if os.path.exists(QUEUE_FILE):  # Проверка на существование файла
         try:
-            await bot.delete_message(chat_id=user_id, message_id=user_last_message[user_id])
-        except Exception as e:
-            print(f"Ошибка при удалении сообщения: {e}")
+            with open(QUEUE_FILE, 'r') as file:
+                data = file.read().strip()  # Чтение файла и удаление лишних пробелов/переносов строк
+                if data:  # Проверка, что файл не пустой
+                    queue = json.loads(data)
+                else:
+                    queue = []  # Если файл пустой, загружаем пустую очередь
+        except json.JSONDecodeError:
+            print("Ошибка загрузки очереди: файл повреждён. Очередь загружается пустой.")
+            queue = []  # Если произошла ошибка, загружаем пустую очередь
+    else:
+        queue = []  # Если файла не существует, создаём пустую очередь
 
-    # Добавление пользователя в очередь с сортировкой по приоритету
-    queue.append({'id': user_id, 'name': name, 'priority': priority})
-    queue.sort(key=lambda x: x['priority'])
 
-    # Отправка сообщения и сохранение ID
-    new_message = await message.answer(f"Добавлено в очередь: {name} с приоритетом {priority}")
-    user_last_message[user_id] = new_message.message_id
+# Сохранение очереди в файл
+def save_queue():
+    with open(QUEUE_FILE, 'w') as file:
+        json.dump(queue, file)
 
 
-# Команда /queue для показа всей очереди
-@dp.message(Command("queue"))
-async def show_queue(message: types.Message):
+# Формирование текста для очереди с проверкой длины
+def generate_queue_text():
     if queue:
         queue_list = "\n".join(
-            [f"{i + 1}. {user['name']} (Приоритет: {user['priority']})" for i, user in enumerate(queue)])
-        await message.answer(f"Очередь:\n{queue_list}")
+            [f"{i + 1}. {user['name']} (Приоритет: {user['priority']})" for i, user in enumerate(queue)]
+        )
+        text = f"Очередь:\n{queue_list}"
+        if len(text) > 4000:
+            text = f"Очередь:\n{queue_list[:4000]}...\n(Очередь обрезана из-за ограничений Телеграм)"
+        return text
     else:
-        await message.answer("Очередь пустая.")
-
-# Команда /next для показа и удаления следующего пользователя
-@dp.message(Command("next"))
-async def show_next(message: types.Message):
-    if queue:
-        removed = queue.pop(0)
-        await message.answer(f"{removed['name']} удален(а) из очереди.")
-    else:
-        await message.answer("Очередь пустая.")
-    if queue.__len__() > 0:
-        next_user = queue[-1]
-        await message.answer(f"Следующий к доске: {next_user['name']} (Приоритет: {next_user['priority']})")
-    else:
-        await message.answer("Очередь пустая.")
+        return "Очередь пустая."
 
 
-# Команда /clear с проверкой прав администратора
+async def safe_update_start_message():
+    if start_message_id and start_chat_id:
+        try:
+            await bot.edit_message_text(
+                chat_id=start_chat_id,
+                message_id=start_message_id,
+                text=f"Очередь обновлена:\n\n{generate_queue_text()}",
+                reply_markup=add_priority_keyboard
+            )
+        except Exception as e:
+            print(f"Ошибка при обновлении сообщения: {e}")
+
+
+async def auto_delete_message(chat_id: int, message_id: int, delay: int = 15):
+    await asyncio.sleep(delay)
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        print(f"Ошибка при удалении сообщения: {e}")
+
+
+@dp.message(Command("start"))
+async def send_welcome(message: types.Message):
+    global start_message_id, start_chat_id
+    start_chat_id = message.chat.id
+    sent_message = await message.answer(
+        "Привет! Я Хитори Гото из аниме Одинокий рокер! Я помогу вам организовать очередь.\n"
+        "Выберите, пожалуйста, приоритет для добавления в очередь или нажмите 'Следующий' для удаления себя из очереди:\n"
+        "Соблюдайте правила, пожалуйста, и наслаждайтесь очередью!:\n\n"
+        f"{generate_queue_text()}",
+        reply_markup=add_priority_keyboard
+    )
+    start_message_id = sent_message.message_id
+
+
+async def add_to_queue_with_priority(user_id: int, name: str, priority: int):
+    for user in queue:
+        if user['id'] == user_id:
+            temp_msg = await bot.send_message(user_id, "Вы уже находитесь в очереди.")
+            asyncio.create_task(auto_delete_message(chat_id=user_id, message_id=temp_msg.message_id))
+            return
+
+    queue.append({'id': user_id, 'name': name, 'priority': priority})
+    queue.sort(key=lambda x: x['priority'])
+    save_queue()  # Сохранение очереди после добавления
+    await safe_update_start_message()
+
+
+@dp.callback_query(lambda c: c.data.startswith("add_"))
+async def handle_add_priority_callback(callback_query: types.CallbackQuery):
+    priority_map = {"add_low": 0, "add_medium": 1, "add_high": 2}
+    priority = priority_map[callback_query.data]
+    user_id = callback_query.from_user.id
+    name = callback_query.from_user.full_name
+
+    await add_to_queue_with_priority(user_id=user_id, name=name, priority=priority)
+    await callback_query.answer()
+
+
+@dp.callback_query(lambda c: c.data == "next_user")
+async def handle_next_callback(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    user_name = callback_query.from_user.full_name
+
+    for i, user in enumerate(queue):
+        if user['id'] == user_id:
+            queue.pop(i)
+            save_queue()  # Сохранение очереди после удаления
+            temp_msg = await callback_query.message.answer(f"{user_name} удален(а) из очереди.")
+            asyncio.create_task(
+                auto_delete_message(chat_id=callback_query.message.chat.id, message_id=temp_msg.message_id))
+            await safe_update_start_message()
+            await callback_query.answer()
+            return
+
+    temp_msg = await callback_query.message.answer("Вы не находитесь в очереди.")
+    asyncio.create_task(auto_delete_message(chat_id=callback_query.message.chat.id, message_id=temp_msg.message_id))
+    await callback_query.answer()
+
+
+@dp.message(Command("queue"))
+async def show_queue(message: types.Message):
+    temp_msg = await message.answer(generate_queue_text())
+    asyncio.create_task(auto_delete_message(chat_id=message.chat.id, message_id=temp_msg.message_id))
+
+
 ADMIN_USER_ID = 1248599357  # Замените на ваш реальный user_id
 
 
 @dp.message(Command("clear"))
 async def clear_queue(message: types.Message):
+    global queue
     if message.from_user.id == ADMIN_USER_ID:
         queue.clear()
-        await message.answer("Очередь очищена.")
+        save_queue()  # Сохранение пустой очереди после очистки
+        await safe_update_start_message()
+        temp_msg = await message.answer("Очередь очищена.")
     else:
-        await message.answer("У вас нет прав для очистки всей очереди.")
+        temp_msg = await message.answer("У вас нет прав для очистки всей очереди.")
 
-# Настройка команд
+    asyncio.create_task(auto_delete_message(chat_id=message.chat.id, message_id=temp_msg.message_id))
+
+
+# Команда /reset для очистки сохранённой очереди
+@dp.message(Command("reset"))
+async def reset_queue(message: types.Message):
+    global queue
+    if message.from_user.id == ADMIN_USER_ID:  # Проверка, что это администратор
+        queue.clear()  # Очищаем очередь в оперативной памяти
+
+        # Удаляем содержимое файла queue_data.json
+        try:
+            with open(QUEUE_FILE, 'w') as file:
+                file.write("[]")  # Записываем пустой JSON массив, очищая файл
+            temp_msg = await message.answer("Очередь и сохранение успешно очищены.")
+        except Exception as e:
+            temp_msg = message.answer(f"Ошибка при очистке сохранения: {e}")
+    else:
+        temp_msg = await message.answer("У вас нет прав для очистки сохранения.")
+
+    asyncio.create_task(auto_delete_message(chat_id=message.chat.id, message_id=temp_msg.message_id))
+
+
+
 async def set_commands(botQueue: Bot):
     commands = [
         BotCommand(command="/start", description="Запустить бота"),
-        BotCommand(command="/add", description="Добавить в очередь"),
-        BotCommand(command="/next", description="Удалить и показать следующего"),
         BotCommand(command="/queue", description="Показать очередь"),
-        BotCommand(command="/clear", description="Очистить очередь")
+        BotCommand(command="/clear", description="Очистить очередь"),
+        BotCommand(command="/reset", description="Очистка сохранения")
     ]
     await botQueue.set_my_commands(commands)
 
+
 # Запуск бота
 async def main():
+    load_queue()  # Загрузка очереди при запуске
+
     try:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
+
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
