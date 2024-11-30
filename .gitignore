@@ -1,2 +1,4 @@
 .idea/
 .venv/
+queue_data.json
+venv/
