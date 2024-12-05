@@ -12,13 +12,10 @@ API_TOKEN = '8104732193:AAHJ_qRzjEcSu7p5Ntp-Nthy7Y7pkzbvkcs'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Путь к файлу для хранения данных очереди
 QUEUE_FILE = 'queue_data.json'
 
-# Очередь, где каждый элемент — словарь с данными пользователя и приоритетом
 queue = []
 
-# ID стартового сообщения для обновления информации о очереди
 start_message_id = None
 start_chat_id = None
 
@@ -30,31 +27,28 @@ add_priority_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 
-# Загрузка очереди из файла при запуске
 def load_queue():
     global queue
-    if os.path.exists(QUEUE_FILE):  # Проверка на существование файла
+    if os.path.exists(QUEUE_FILE):
         try:
             with open(QUEUE_FILE, 'r') as file:
-                data = file.read().strip()  # Чтение файла и удаление лишних пробелов/переносов строк
-                if data:  # Проверка, что файл не пустой
+                data = file.read().strip()
+                if data:
                     queue = json.loads(data)
                 else:
-                    queue = []  # Если файл пустой, загружаем пустую очередь
+                    queue = []
         except json.JSONDecodeError:
             print("Ошибка загрузки очереди: файл повреждён. Очередь загружается пустой.")
-            queue = []  # Если произошла ошибка, загружаем пустую очередь
+            queue = []
     else:
-        queue = []  # Если файла не существует, создаём пустую очередь
+        queue = []
 
 
-# Сохранение очереди в файл
 def save_queue():
     with open(QUEUE_FILE, 'w') as file:
         json.dump(queue, file)
 
 
-# Формирование текста для очереди с проверкой длины
 def generate_queue_text():
     if queue:
         queue_list = "\n".join(
@@ -112,7 +106,7 @@ async def add_to_queue_with_priority(user_id: int, name: str, priority: int):
 
     queue.append({'id': user_id, 'name': name, 'priority': priority})
     queue.sort(key=lambda x: x['priority'])
-    save_queue()  # Сохранение очереди после добавления
+    save_queue()
     await safe_update_start_message()
 
 
@@ -135,7 +129,7 @@ async def handle_next_callback(callback_query: types.CallbackQuery):
     for i, user in enumerate(queue):
         if user['id'] == user_id:
             queue.pop(i)
-            save_queue()  # Сохранение очереди после удаления
+            save_queue()
             temp_msg = await callback_query.message.answer(f"{user_name} удален(а) из очереди.")
             asyncio.create_task(
                 auto_delete_message(chat_id=callback_query.message.chat.id, message_id=temp_msg.message_id))
@@ -154,7 +148,7 @@ async def show_queue(message: types.Message):
     asyncio.create_task(auto_delete_message(chat_id=message.chat.id, message_id=temp_msg.message_id))
 
 
-ADMIN_USER_ID = 1248599357  # Замените на ваш реальный user_id
+ADMIN_USER_ID = 1248599357
 
 
 @dp.message(Command("clear"))
@@ -171,17 +165,15 @@ async def clear_queue(message: types.Message):
     asyncio.create_task(auto_delete_message(chat_id=message.chat.id, message_id=temp_msg.message_id))
 
 
-# Команда /reset для очистки сохранённой очереди
 @dp.message(Command("reset"))
 async def reset_queue(message: types.Message):
     global queue
-    if message.from_user.id == ADMIN_USER_ID:  # Проверка, что это администратор
-        queue.clear()  # Очищаем очередь в оперативной памяти
+    if message.from_user.id == ADMIN_USER_ID:
+        queue.clear()
 
-        # Удаляем содержимое файла queue_data.json
         try:
             with open(QUEUE_FILE, 'w') as file:
-                file.write("[]")  # Записываем пустой JSON массив, очищая файл
+                file.write("[]")
             temp_msg = await message.answer("Очередь и сохранение успешно очищены.")
         except Exception as e:
             temp_msg = message.answer(f"Ошибка при очистке сохранения: {e}")
@@ -192,19 +184,18 @@ async def reset_queue(message: types.Message):
 
 
 
-async def set_commands(botQueue: Bot):
+async def set_commands(botqueue: Bot):
     commands = [
         BotCommand(command="/start", description="Запустить бота"),
         BotCommand(command="/queue", description="Показать очередь"),
         BotCommand(command="/clear", description="Очистить очередь"),
         BotCommand(command="/reset", description="Очистка сохранения")
     ]
-    await botQueue.set_my_commands(commands)
+    await botqueue.set_my_commands(commands)
 
 
-# Запуск бота
 async def main():
-    load_queue()  # Загрузка очереди при запуске
+    load_queue()
 
     try:
         await dp.start_polling(bot)
