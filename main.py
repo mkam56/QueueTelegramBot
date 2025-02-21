@@ -94,10 +94,14 @@ async def safe_update_start_message():
             await bot.edit_message_text(
                 chat_id=start_chat_id,
                 message_id=start_message_id,
-                text="Привет! Я Хитори Гото из аниме ""Одинокий рокер""! Я помогу вам организовать очередь.\n"
-            "Нажмите, пожалуйста, кнопку ""добавить себя"" чтобы поучаствовать в очереди :\n"
-            "После того как все желающие запишутся под этим сообщением, создастся очередь основанная на ваших баллах :\n"
-            "Соблюдайте правила, пожалуйста, и наслаждайтесь очередью! :\n\n"
+                text="Привет! Я Хитори Гото из аниме "
+                "Одинокий рокер"
+                "! Я помогу вам организовать очередь.\n"
+                "Нажмите, пожалуйста, кнопку "
+                "добавить себя"
+                " чтобы поучаствовать в очереди :\n"
+                "После того как все желающие запишутся под этим сообщением, создастся очередь основанная на ваших баллах :\n"
+                "Соблюдайте правила, пожалуйста, и наслаждайтесь очередью! :\n\n"
                 f"{generate_queue_text()}",
                 reply_markup=add_keyboard,
             )
@@ -131,8 +135,12 @@ async def send_welcome(message: types.Message):
         global start_message_id, start_chat_id
         start_chat_id = message.chat.id
         sent_message = await message.answer(
-            "Привет! Я Хитори Гото из аниме ""Одинокий рокер""! Я помогу вам организовать очередь.\n"
-            "Нажмите, пожалуйста, кнопку ""добавить себя"" чтобы поучаствовать в очереди :\n"
+            "Привет! Я Хитори Гото из аниме "
+            "Одинокий рокер"
+            "! Я помогу вам организовать очередь.\n"
+            "Нажмите, пожалуйста, кнопку "
+            "добавить себя"
+            " чтобы поучаствовать в очереди :\n"
             "После того как все желающие запишутся под этим сообщением, создастся очередь основанная на ваших баллах :\n"
             "Соблюдайте правила, пожалуйста, и наслаждайтесь очередью! :\n\n"
             f"{generate_queue_text()}",
@@ -146,7 +154,9 @@ async def add_to_queue_with_priority(user_id: int, name: str, username: str = No
 
     for user in queue:
         if user["id"] == user_id:
-            temp_msg = await bot.send_message(user_id, "Вы уже находитесь в очереди. Привет, как дела? Как жизнь?")
+            temp_msg = await bot.send_message(
+                user_id, "Вы уже находитесь в очереди. Привет, как дела? Как жизнь?"
+            )
             await asyncio.create_task(
                 auto_delete_message(
                     chat_id=user_id, message_id=temp_msg.message_id, delay=15
@@ -167,8 +177,8 @@ async def add_to_queue_with_priority(user_id: int, name: str, username: str = No
                 "math_line": 0,
                 "math_anal": 0,
                 "computer architecture": 0,
-                "skkv": 0
-            }
+                "skkv": 0,
+            },
         }
         classmates.append(new_user)
         save_classmates(classmates)
@@ -382,10 +392,18 @@ async def switch_places(message: types.Message):
         return
 
     switch_button = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="Поменяться местами", callback_data=f"switch_{user_id}")]]
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Поменяться местами", callback_data=f"switch_{user_id}"
+                )
+            ]
+        ]
     )
 
-    await message.answer("Кто хочет поменяться местами? Нажмите кнопку ниже:", reply_markup=switch_button)
+    await message.answer(
+        "Кто хочет поменяться местами? Нажмите кнопку ниже:", reply_markup=switch_button
+    )
 
 
 @dp.callback_query(lambda c: c.data.startswith("switch_"))
@@ -398,10 +416,14 @@ async def handle_switch_callback(callback_query: types.CallbackQuery):
         return
 
     user_idx = next((i for i, user in enumerate(queue) if user["id"] == user_id), None)
-    target_idx = next((i for i, user in enumerate(queue) if user["id"] == target_id), None)
+    target_idx = next(
+        (i for i, user in enumerate(queue) if user["id"] == target_id), None
+    )
 
     if user_idx is None or target_idx is None:
-        await callback_query.answer("Один из участников больше не в очереди.", show_alert=True)
+        await callback_query.answer(
+            "Один из участников больше не в очереди.", show_alert=True
+        )
         return
 
     queue[user_idx], queue[target_idx] = queue[target_idx], queue[user_idx]
