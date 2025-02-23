@@ -1,6 +1,5 @@
 .idea/
 .venv/
-queue_data.json
-queue_state.json
+.json
 venv/
 
